@@ -35,11 +35,44 @@ network:
    dhcp4: true
   p1p1:
    addresses:
-    - 192.168.1.1/24
+    - 192.168.99.1/24
 ```
 Then run `sudo netplan apply`. This will make the changes effective and persistent over reboot.
 
 You can read more about `netplan` from here: https://netplan.io/examples/
+
+<div style="display: flex;">
+<div style="display: flex; align-items:center; padding: 10px;">
+<img src="https://publicdomainvectors.org/photos/h0us3s_Signs_Hazard_Warning_9.png" alt="drawing" width="100"/>
+</div>
+<div style="display: flex; align-items:center;">
+WARNING: Your LAN network should be up even if there is no carrier (aka: no client connected). This will enable the DHCP server to always be running and serve IP addresses the moment you connect a client.
+</div>
+
+</div>
+
+### Enabling LAN to be UP without carrier
+In the case of the LAN interface (`p1p1`) we should enable it to work without carrier.
+To do this we can copy the netplan's generated network unit from `/run/systemd/network/10-netplan-p1p1.network` and add the `ConfigureWithoutCarrier=true` to the `[Network]` section. 
+
+You network unit will look similar to this:
+
+```
+[Match]
+Name=p1p1
+
+[Network]
+LinkLocalAddressing=ipv6
+Address=192.168.99.1/24
+Gateway=192.168.99.1
+DNS=127.0.0.1
+DNS=192.168.99.1
+ConfigureWithoutCarrier=true
+```
+This modified network unit should be placed in `/etc/systemd/network/10-netplan-p1p1.network` to take precedence. Notice that netplan will not update the network unit in `/etc` and you will need to copy again from `/run`.
+
+You can apply the changes by `sudo systemctl restart systemd-networkd.service`. You can test this change by checking the state of the interface with `ip a` when there's no client connected to it.
+
 
 ### Enabling forwarding in /etc/sysctl.conf
 > The first step to making Linux route is enabling forwarding between interfaces. This is really simple: `sudo nano /etc/sysctl.conf` and uncomment (remove the leading pound sign from) the line that says `net.ipv4.ip_forward=1`. Ctrl-X to exit, Y you want to save, and you're outta there.
@@ -148,7 +181,18 @@ This same command: `sudo /etc/networkd-dispatcher/configuring.d/01iptables.sh` i
 > Setting up your router to handle DHCP duties is easy. 
 > 
 > `sudo apt-get install isc-dhcp-server` 
-> 
+
+You first need to specify the interface for the DHCP server
+
+`sudo nano /etc/default/isc-dhcp-server`
+
+```
+# On what interfaces should the DHCP server (dhcpd) serve DHCP requests?
+#       Separate multiple interfaces with spaces, e.g. "eth0 eth1".
+INTERFACESv4="p1p1"
+```
+
+
 > and configure it by inserting a subnet clause into `/etc/dhcp/dhcpd.conf`
 ```
 subnet 192.168.99.0 netmask 255.255.255.0 {
@@ -158,7 +202,7 @@ subnet 192.168.99.0 netmask 255.255.255.0 {
 	option broadcast-address 192.168.99.255;
 }
 ```
-You can probably figure all that out for yourself. The local network will be 192.168.99.x, the router itself will live on 192.168.99.1, the router will serve up DNS itself, and the broadcast address goes where the broadcast address always should. To apply the configurations we just made, you just 
+>You can probably figure all that out for yourself. The local network will be 192.168.99.x, the router itself will live on 192.168.99.1, the router will serve up DNS itself, and the broadcast address goes where the broadcast address always should. To apply the configurations we just made, you just 
 
 `sudo systemctl enable --now isc-dhcp-server.service` 
 
