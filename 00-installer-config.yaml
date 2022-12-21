@@ -1,0 +1,21 @@
+# netplan configuration
+# path: /etc/netplan/00-installer-config.yaml
+# apply the configurations with:
+# sudo netplan apply
+
+network:
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: true
+      match:
+        macaddress: yy:yy:yy:yy:yy:yy
+      set-name: eth0
+    eth1:
+      match:
+        macaddress: xx:xx:xx:xx:xx:xx
+      set-name: eth1
+      addresses:
+        - 192.168.1.1/24
+      ignore-carrier: true
+  version: 2
