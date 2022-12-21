@@ -1,0 +1,65 @@
+# iptables
+# This rules should be applied by a script
+# located in /etc/networkd-dispatcher/configuring.d/01iptables.sh
+# The script simply applies the rules:
+# /usr/bin/iptables-restore < /etc/networkd-dispatcher/iptables_rules
+# This rules should be located in /etc/networkd-dispatcher/iptables_rules
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -o eth0 -j MASQUERADE
+COMMIT
+
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+# basic global accept rules - ICMP, loopback, traceroute, established all accepted
+-A INPUT -s 127.0.0.0/8 -d 127.0.0.0/8 -i lo -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -m state --state ESTABLISHED -j ACCEPT
+# enable traceroute rejections to get sent out
+-A INPUT -p UDP --dport 33434:33523 -j REJECT --reject-with icmp-port-unreachable
+# DNS - accept from LAN
+-A INPUT -i eth1 -p tcp --dport 53 -j ACCEPT
+-A INPUT -i eth1 -p udp --dport 53 -j ACCEPT
+# SSH - accept from LAN
+-A INPUT -i eth1 -p tcp --dport 22 -j ACCEPT
+# DHCP client requests - accept from LAN
+-A INPUT -i eth1 -p udp --dport 67:68 -j ACCEPT
+# Ports for unifi controller
+-A INPUT -i eth1 -p udp --dport 3478 -j ACCEPT
+-A INPUT -i eth1 -p tcp --dport 5514 -j ACCEPT
+-A INPUT -i eth1 -p tcp --dport 8080 -j ACCEPT
+-A INPUT -i eth1 -p tcp --dport 8443 -j ACCEPT
+-A INPUT -i eth1 -p tcp --dport 6789 -j ACCEPT
+-A INPUT -i eth1 -p udp --dport 5656:5699 -j ACCEPT
+-A INPUT -i eth1 -p udp --dport 10001 -j ACCEPT
+-A INPUT -i eth1 -p udp --dport 1900 -j ACCEPT
+# Ports for plexserver
+-A INPUT -i eth1 -p tcp --dport 32400 -j ACCEPT
+# Plex network discovery
+-A INPUT -i eth1 -p udp --dport 32410:32414 -j ACCEPT
+# Ports for MQTT
+-A INPUT -i eth1 -p tcp --dport 1883 -j ACCEPT
+#-A INPUT -i eth1 -p tcp --dport 9001 -j ACCEPT 
+# Port for Homeassistant
+-A INPUT -i eth1 -p tcp --dport 8123 -j ACCEPT
+# Ports for Homekit controller/bridge
+-A INPUT -i eth1 -p tcp --dport 51827 -j ACCEPT
+-A INPUT -i eth1 -p udp --dport 5353 -j ACCEPT
+# Port for telnet
+-A INPUT -i eth1 -p tcp --dport 4040 -j ACCEPT
+# Refuse anything else
+-A INPUT -j DROP
+# Forwarding rules
+# forward packets along established/related connections
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+# forward from LAN (p1p1) to WAN (p4p1)
+-A FORWARD -i eth1 -o eth0 -j ACCEPT
+# drop all other forwarded traffic
+-A FORWARD -j DROP
+COMMIT
